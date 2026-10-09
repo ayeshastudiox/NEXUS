@@ -1,0 +1,1654 @@
+/* ============================================================================
+   NEXUS ATLAS — Phase 1 Design System Foundation
+   ----------------------------------------------------------------------------
+   Additive layer. Loaded AFTER index.css so it retargets the existing
+   --nx-* tokens and introduces the atlas panel/typography language WITHOUT
+   rewriting the current stylesheet. If this file is removed from the
+   main.tsx import chain, the application falls back to the previous design
+   exactly as it was.
+
+   Visual label: "NEXUS ATLAS" applies to geospatial surfaces only.
+   Registered product name remains: NEXUS — Autonomous Logistics Intelligence.
+
+   Contents
+   1.  Token retarget
+   2.  Typography scale
+   3.  Ambient canvas
+   4.  Surface language: chrome / panel / well / float
+   5.  Shell refinement: command rail, top command bar, workspace
+   6.  Data density: metric band, key/value, tables
+   7.  Entrance motion
+   8.  Reduced motion + responsive
+   9.  ATLAS MAP                                                     (Phase 2)
+   10. Map responsive                                               (Phase 2)
+   ============================================================================ */
+
+/* ================================================================
+   1. TOKEN RETARGET
+   Re-declaring the semantic tokens here cascades to every existing
+   component, because they all consume var(--nx-*).
+   ================================================================ */
+
+:root {
+  /* --- Canvas + surfaces: deep teal-black --- */
+  --nx-bg:            #02070b;
+  --nx-bg-deep:       #030b10;
+  --nx-surface-1:     #07131a;
+  --nx-surface-2:     #0b1b23;
+  --nx-surface-3:     #0e222b;
+  --nx-surface-4:     #133039;
+  --nx-surface-hover: #0d2029;
+
+  /* --- Borders --- */
+  --nx-border:        #17313a;
+  --nx-border-strong: #1f4048;
+  --nx-border-subtle: #0e222b;
+
+  /* --- Text ramp --- */
+  --nx-text-1: #eaf5f5;
+  --nx-text-2: #91a7ad;
+  --nx-text-3: #617780;
+  --nx-text-4: #3d5158;
+
+  /* --- Primary: turquoise / cyan --- */
+  --nx-teal:        #31e6d0;
+  --nx-teal-bright: #79fff0;
+  --nx-teal-deep:   #0d6b63;
+  --nx-teal-dim:    rgba(49, 230, 208, 0.12);
+  --nx-teal-line:   rgba(49, 230, 208, 0.24);
+  --nx-cyan:        #3bc7e8;
+
+  /* --- Semantic risk ramp --- */
+  --nx-ok:        #3fd6a4;
+  --nx-ok-dim:    rgba(63, 214, 164, 0.12);
+  --nx-info:      #3bc7e8;
+  --nx-info-dim:  rgba(59, 199, 232, 0.12);
+  --nx-warn:      #f5a623;
+  --nx-warn-dim:  rgba(245, 166, 35, 0.12);
+  --nx-high:      #ff7043;
+  --nx-high-dim:  rgba(255, 112, 67, 0.14);
+  --nx-critical:  #ff3b4e;
+  --nx-critical-dim: rgba(255, 59, 78, 0.14);
+
+  /* --- Elevation: deeper, softer --- */
+  --nx-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --nx-shadow:    0 8px 28px rgba(0, 0, 0, 0.45);
+  --nx-shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --nx-glow-teal: 0 0 14px rgba(49, 230, 208, 0.18);
+
+  /* --- Type families --- */
+  --atl-ui:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --atl-mono: 'IBM Plex Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* --- Type scale (single source of truth) --- */
+  --atl-display:     20px;
+  --atl-page:        17px;
+  --atl-section:     11px;
+  --atl-body:        12.5px;
+  --atl-meta:        11px;
+  --atl-micro:       10px;
+  --atl-metric-lg:   20px;
+  --atl-metric:      15px;
+
+  /* --- Density --- */
+  --atl-gutter:      12px;
+  --atl-band:        40px;
+  --atl-row:         34px;
+
+  /* --- Atlas chrome --- */
+  --atl-chrome-edge:  rgba(49, 230, 208, 0.10);
+  --atl-chrome-fill:  #030b10;
+  --atl-glass:        rgba(7, 19, 26, 0.92);
+  --atl-grid-line:    rgba(49, 230, 208, 0.045);
+}
+
+/* ================================================================
+   2. TYPOGRAPHY SCALE
+   ================================================================ */
+
+body {
+  font-family: var(--atl-ui);
+  background: var(--nx-bg);
+}
+
+.nx-h1, .nx-page-title, .atl-display {
+  font-family: var(--atl-ui);
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+.nx-page-title { font-size: var(--atl-page); }
+
+.atl-display {
+  font-size: var(--atl-display);
+  line-height: 1.2;
+  color: var(--nx-text-1);
+}
+
+.nx-label, .atl-section-label {
+  font-family: var(--atl-ui);
+  font-size: var(--atl-section);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nx-text-3);
+  line-height: 1.5;
+}
+
+.nx-eyebrow {
+  font-family: var(--atl-ui);
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--nx-teal);
+}
+
+.nx-sub  { font-size: var(--atl-body); color: var(--nx-text-3); }
+.nx-meta { font-size: var(--atl-meta); color: var(--nx-text-3); line-height: 1.5; }
+.nx-body { font-size: var(--atl-body); color: var(--nx-text-2); line-height: 1.6; }
+
+.nx-mono, .atl-mono {
+  font-family: var(--atl-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+.nx-num { font-variant-numeric: tabular-nums; }
+
+.atl-ref {
+  font-family: var(--atl-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nx-teal);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.atl-coord {
+  font-family: var(--atl-mono);
+  font-size: var(--atl-micro);
+  color: var(--nx-text-3);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================================================================
+   3. AMBIENT CANVAS
+   Very low-amplitude atmosphere. Restraint is deliberate — no neon.
+   ================================================================ */
+
+.nx-workspace, .nx-shell, .nx-main { background-color: var(--nx-bg); }
+
+.nx-workspace {
+  background-image:
+    radial-gradient(1100px 620px at 18% -12%, rgba(49, 230, 208, 0.045), transparent 62%),
+    radial-gradient(900px 520px at 100% 4%, rgba(59, 199, 232, 0.035), transparent 60%),
+    linear-gradient(180deg, rgba(3, 11, 16, 0.7) 0%, rgba(2, 7, 11, 0) 240px);
+  background-repeat: no-repeat;
+  background-attachment: local;
+}
+
+.atl-gridlines {
+  background-image:
+    linear-gradient(to right, var(--atl-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--atl-grid-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ================================================================
+   4. SURFACE LANGUAGE
+   ================================================================ */
+
+.nx-panel {
+  background: var(--nx-surface-1);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r-lg);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.015) inset;
+}
+
+.nx-panel-head {
+  border-bottom: 1px solid var(--nx-border);
+  background: linear-gradient(180deg, rgba(14, 34, 43, 0.5), rgba(11, 27, 35, 0));
+  min-height: var(--atl-band);
+  padding: 0 13px;
+}
+.nx-panel-title {
+  font-family: var(--atl-ui);
+  font-size: var(--atl-section);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--nx-text-2);
+}
+.nx-panel-body { padding: 13px; }
+
+.atl-chrome {
+  position: relative;
+  background: var(--atl-chrome-fill);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r-lg);
+  overflow: hidden;
+  box-shadow: var(--nx-shadow);
+}
+.atl-chrome::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--atl-chrome-edge) 18%, var(--atl-chrome-edge) 82%, transparent);
+  pointer-events: none;
+  z-index: 30;
+}
+.atl-chrome::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+  z-index: 30;
+  background:
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) left top / 11px 1px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) left top / 1px 11px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) right top / 11px 1px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) right top / 1px 11px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) left bottom / 11px 1px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) left bottom / 1px 11px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) right bottom / 11px 1px no-repeat,
+    linear-gradient(var(--atl-chrome-edge), var(--atl-chrome-edge)) right bottom / 1px 11px no-repeat;
+  opacity: 0.7;
+}
+
+.atl-chrome-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--atl-band);
+  padding: 0 13px;
+  border-bottom: 1px solid var(--nx-border);
+  background: linear-gradient(180deg, rgba(14, 34, 43, 0.6), rgba(3, 11, 16, 0.2));
+  position: relative;
+  z-index: 20;
+}
+.atl-chrome-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--atl-section);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nx-text-2);
+}
+.atl-chrome-title svg { width: 14px; height: 14px; color: var(--nx-teal); }
+
+.atl-well {
+  background: var(--nx-bg-deep);
+  border: 1px solid var(--nx-border-subtle);
+  border-radius: var(--nx-r);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+.atl-well-pad { padding: 11px 12px; }
+.atl-well-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nx-border-subtle);
+  background: rgba(14, 34, 43, 0.35);
+}
+
+.atl-float {
+  background: var(--atl-glass);
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-r-lg);
+  box-shadow: var(--nx-shadow-lg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  pointer-events: auto;
+}
+.atl-float-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--nx-border);
+  background: linear-gradient(180deg, rgba(19, 48, 57, 0.5), rgba(7, 19, 26, 0));
+}
+.atl-float-body { padding: 12px; }
+.atl-float-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--nx-r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--nx-text-3);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.atl-float-close:hover {
+  color: var(--nx-text-1);
+  background: var(--nx-surface-3);
+  border-color: var(--nx-border);
+}
+.atl-float-close svg { width: 13px; height: 13px; }
+
+/* ================================================================
+   5. SHELL REFINEMENT
+   ================================================================ */
+
+.nx-rail {
+  background: linear-gradient(180deg, #030b10 0%, #02070b 100%);
+  border-right: 1px solid var(--nx-border);
+}
+.nx-rail-brand {
+  background: linear-gradient(145deg, rgba(49, 230, 208, 0.18), rgba(13, 107, 99, 0.35));
+  border: 1px solid var(--nx-teal-line);
+  color: var(--nx-teal-bright);
+  box-shadow: 0 0 0 1px rgba(2, 7, 11, 0.9), 0 0 18px rgba(49, 230, 208, 0.14);
+}
+.nx-rail-item { transition: color 0.16s, background 0.16s, border-color 0.16s; }
+.nx-rail-item.active {
+  color: var(--nx-teal);
+  background: rgba(49, 230, 208, 0.10);
+  border-color: var(--nx-teal-line);
+}
+.nx-rail-item.active::before {
+  background: var(--nx-teal);
+  box-shadow: 0 0 10px rgba(49, 230, 208, 0.5);
+}
+.nx-rail-tip {
+  background: #0e222b;
+  border: 1px solid var(--nx-border-strong);
+  color: var(--nx-text-1);
+  font-size: var(--atl-meta);
+}
+.nx-rail-avatar {
+  background: linear-gradient(145deg, var(--nx-teal), var(--nx-teal-deep));
+  border: 1px solid var(--nx-teal-line);
+  color: #01201c;
+}
+
+.nx-topbar {
+  background: linear-gradient(180deg, #040d13 0%, #030b10 100%);
+  border-bottom: 1px solid var(--nx-border);
+  gap: 14px;
+}
+.nx-topbar-wordmark {
+  font-family: var(--atl-ui);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--nx-text-1);
+}
+.nx-topbar-context-title { font-size: 12px; font-weight: 600; color: var(--nx-text-1); }
+.nx-topbar-context-sub { font-size: var(--atl-micro); letter-spacing: 0.1em; color: var(--nx-text-3); }
+
+.nx-search-btn {
+  background: var(--nx-bg-deep);
+  border: 1px solid var(--nx-border);
+  color: var(--nx-text-3);
+}
+.nx-search-btn:hover {
+  border-color: var(--nx-border-strong);
+  background: var(--nx-surface-1);
+  color: var(--nx-text-2);
+}
+.nx-kbd { background: var(--nx-surface-1); border: 1px solid var(--nx-border); color: var(--nx-text-3); }
+
+/* Connectivity indicator. The dot animates as a heartbeat, which reads as
+   "the system is up" rather than "a vehicle is moving". */
+.nx-live {
+  background: rgba(49, 230, 208, 0.09);
+  border: 1px solid var(--nx-teal-line);
+  color: var(--nx-teal);
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  padding: 0 8px;
+  height: 24px;
+  gap: 5px;
+}
+.nx-live-dot { background: var(--nx-teal); box-shadow: 0 0 8px rgba(49, 230, 208, 0.7); }
+.nx-clock {
+  font-family: var(--atl-mono);
+  font-size: var(--atl-meta);
+  color: var(--nx-text-2);
+  letter-spacing: 0.05em;
+}
+.nx-icon-btn:hover { color: var(--nx-teal); background: var(--nx-surface-1); border-color: var(--nx-border); }
+
+.nx-workspace { padding: var(--atl-gutter); }
+.nx-page { gap: var(--atl-gutter); }
+.nx-page-head { gap: 14px; }
+
+/* ================================================================
+   6. DATA DENSITY
+   ================================================================ */
+
+.nx-metrics {
+  background: linear-gradient(180deg, rgba(11, 27, 35, 0.82), rgba(7, 19, 26, 0.88));
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r-lg);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 10px 30px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  position: relative;
+}
+/* Hairline turquoise inner edge — the "glass rim" from the reference consoles */
+.nx-metrics::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--nx-teal-line) 15%, var(--nx-teal-line) 85%, transparent);
+  pointer-events: none;
+}
+.nx-metric { padding: 10px 13px; position: relative; }
+.nx-metric-label {
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--nx-text-3);
+}
+.nx-metric-value {
+  font-family: var(--atl-mono);
+  font-size: var(--atl-metric-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+  line-height: 1.15;
+}
+.nx-metric-note { font-size: var(--atl-micro); color: var(--nx-text-3); }
+
+.nx-kv-label {
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--nx-text-3);
+}
+.nx-kv-value { font-size: var(--atl-body); }
+.nx-kv-value.mono { font-family: var(--atl-mono); font-size: 12px; }
+
+.nx-table th {
+  font-size: var(--atl-micro);
+  letter-spacing: 0.09em;
+  color: var(--nx-text-3);
+  background: var(--nx-bg-deep);
+  border-bottom: 1px solid var(--nx-border);
+  padding: 7px 12px;
+}
+.nx-table td {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--nx-text-2);
+  border-bottom: 1px solid var(--nx-border-subtle);
+  height: var(--atl-row);
+}
+.nx-table tbody tr.clickable:hover { background: rgba(49, 230, 208, 0.035); }
+.nx-table .cell-ref {
+  font-family: var(--atl-mono);
+  font-size: 12px;
+  color: var(--nx-teal);
+  font-weight: 600;
+}
+
+.nx-badge {
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.nx-risk-pill { border-radius: 3px; font-size: var(--atl-micro); }
+
+.nx-btn {
+  background: var(--nx-surface-2);
+  border: 1px solid var(--nx-border-strong);
+  color: var(--nx-text-1);
+  font-size: 12px;
+  border-radius: var(--nx-r);
+}
+.nx-btn:hover { background: var(--nx-surface-3); border-color: #245059; }
+.nx-btn-primary {
+  background: var(--nx-teal);
+  border-color: var(--nx-teal);
+  color: #01201c;
+  font-weight: 700;
+}
+.nx-btn-primary:hover { background: var(--nx-teal-bright); border-color: var(--nx-teal-bright); }
+.nx-btn-ghost { background: transparent; border-color: var(--nx-border); color: var(--nx-text-2); }
+.nx-btn-ghost:hover { background: var(--nx-surface-1); border-color: var(--nx-border-strong); color: var(--nx-text-1); }
+
+.nx-pills { background: var(--nx-bg-deep); border: 1px solid var(--nx-border); }
+.nx-pill { color: var(--nx-text-3); font-size: var(--atl-micro); letter-spacing: 0.06em; }
+.nx-pill:hover { color: var(--nx-text-1); }
+.nx-pill.active {
+  background: rgba(49, 230, 208, 0.12);
+  color: var(--nx-teal);
+  box-shadow: inset 0 0 0 1px var(--nx-teal-line);
+}
+
+.nx-input, .nx-select {
+  background: var(--nx-bg-deep);
+  border: 1px solid var(--nx-border);
+  color: var(--nx-text-1);
+}
+.nx-input:focus, .nx-select:focus {
+  border-color: var(--nx-teal);
+  box-shadow: 0 0 0 3px rgba(49, 230, 208, 0.10);
+}
+
+.nx-meter { background: #0a1c23; border-radius: 2px; }
+.nx-meter-fill { background: var(--nx-teal); border-radius: 2px; }
+
+/* ================================================================
+   7. ENTRANCE MOTION
+   ================================================================ */
+
+.atl-rise { animation: atl-rise 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes atl-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes atl-breathe {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 0.35; }
+}
+
+/* ================================================================
+   7b. COMPOSITION PRIMITIVES
+   Deliberately asymmetric: the map is meant to dominate, so these grids
+   give it the larger column and let the intelligence rail stay narrow.
+   ================================================================ */
+
+/* --- Page hero --- */
+.atl-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--nx-border);
+}
+.atl-hero-main { min-width: 0; }
+.atl-hero-side { display: flex; gap: 22px; flex-shrink: 0; }
+.atl-hero-kpi { display: flex; flex-direction: column; gap: 2px; text-align: right; }
+.atl-hero-kpi b {
+  font-family: var(--atl-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--nx-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Asymmetric splits --- */
+.atl-split {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  /*
+    Panels size to their own content instead of stretching to the tallest
+    sibling. This is what removed the large dead space under short panels such
+    as Highest Risk Exposure and Disruption Watch.
+  */
+  align-items: start;
+}
+/* Map dominant: ~3:1 */
+.atl-split--map { grid-template-columns: minmax(0, 3.1fr) minmax(0, 1fr); }
+/* Balanced operational pair */
+.atl-split--even { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+/* Detail pair */
+.atl-split--detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+.atl-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* A table that fills a stretched column can leave a void beneath it; letting
+   this wrapper hug its rows keeps the panel tight. */
+.atl-tight-table .nx-table-wrap { max-height: none; }
+
+/* Chrome that is expected to hold the centrepiece */
+.atl-chrome--tall { box-shadow: var(--nx-shadow-lg); }
+
+/* --- Inline verification flag on signals --- */
+.atl-flag {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(49, 230, 208, 0.12);
+  color: var(--nx-teal);
+  border: 1px solid var(--nx-teal-line);
+  vertical-align: middle;
+}
+.atl-flag--muted {
+  background: var(--nx-surface-3);
+  color: var(--nx-text-3);
+  border-color: var(--nx-border);
+}
+
+/* --- Risk contribution bar (segmented, replaces decorative dials) --- */
+.atl-contrib {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.atl-contrib-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  align-items: baseline;
+}
+.atl-contrib-name { font-size: 12.5px; font-weight: 600; color: var(--nx-text-1); }
+.atl-contrib-pts {
+  font-family: var(--atl-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--nx-high);
+  font-variant-numeric: tabular-nums;
+}
+.atl-contrib-desc { grid-column: 1 / -1; font-size: 11px; color: var(--nx-text-3); }
+.atl-contrib-track {
+  grid-column: 1 / -1;
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--nx-bg-deep);
+  overflow: hidden;
+  margin-top: 5px;
+}
+.atl-contrib-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--nx-high), var(--nx-warn));
+}
+.atl-contrib-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--nx-border);
+}
+.atl-contrib-total b {
+  font-family: var(--atl-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--nx-high);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Metric pair that must not be conflated (schedule slip vs predicted delay) --- */
+.atl-metric-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--nx-border);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r);
+  overflow: hidden;
+}
+.atl-metric-pair > div {
+  background: var(--nx-surface-1);
+  padding: 11px 12px;
+  min-width: 0;
+}
+.atl-metric-pair .val {
+  font-family: var(--atl-mono);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--nx-text-1);
+  line-height: 1.15;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.atl-metric-pair .hint {
+  font-size: 10.5px;
+  color: var(--nx-text-3);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+
+/* --- Cross-document comparison matrix --- */
+.atl-matrix {
+  display: grid;
+  gap: 1px;
+  background: var(--nx-border);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r);
+  overflow: hidden;
+  min-width: 0;
+}
+.atl-matrix > div {
+  /* Darker than the previous `--nx-surface-1`, which read as a bright slab
+     against the near-black surrounding panels. */
+  background: var(--nx-bg-deep);
+  padding: 9px 11px;
+  font-size: 12px;
+  color: var(--nx-text-2);
+  min-width: 0;
+}
+.atl-matrix > .head {
+  background: #010509;
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nx-text-3);
+}
+.atl-matrix > .field {
+  background: #010509;
+  font-weight: 600;
+  color: var(--nx-text-2);
+  text-transform: capitalize;
+}
+.atl-matrix > .val {
+  font-family: var(--atl-mono);
+  font-weight: 600;
+  color: var(--nx-text-1);
+  font-variant-numeric: tabular-nums;
+  background: var(--nx-surface-1);
+}
+/* A diverging value: tinted, edge-marked and bolder so the mismatch reads at a
+   glance rather than only through colour. */
+.atl-matrix > .val.outlier {
+  color: var(--nx-high);
+  background: rgba(255, 112, 67, 0.10);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255, 112, 67, 0.32);
+}
+
+.atl-matrix-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.atl-matrix-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--atl-micro);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nx-high);
+}
+.atl-matrix-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(255, 112, 67, 0.18);
+  border: 1px solid rgba(255, 112, 67, 0.5);
+  display: inline-block;
+}
+
+/* --- Document evidence card --- */
+.atl-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r);
+  background: var(--nx-surface-1);
+  min-width: 0;
+}
+.atl-doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.atl-doc-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nx-text-1);
+  min-width: 0;
+}
+.atl-doc-title svg { width: 13px; height: 13px; flex-shrink: 0; }
+.atl-doc-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atl-doc-rows { display: flex; flex-direction: column; gap: 4px; }
+.atl-doc-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+}
+.atl-doc-row span { color: var(--nx-text-3); }
+.atl-doc-row b {
+  font-family: var(--atl-mono);
+  font-weight: 600;
+  color: var(--nx-text-1);
+  font-variant-numeric: tabular-nums;
+}
+.atl-doc-row b.flag { color: var(--nx-high); }
+
+/* --- Document intake checklist (registration + workspace) --- */
+.atl-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+.atl-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: var(--nx-r);
+  border: 1px solid var(--nx-border);
+  background: var(--nx-bg-deep);
+  color: var(--nx-text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  min-width: 0;
+}
+.atl-check:hover:not(:disabled) { border-color: var(--nx-border-strong); color: var(--nx-text-1); }
+.atl-check:disabled { opacity: 0.55; cursor: not-allowed; }
+.atl-check.is-on {
+  border-color: var(--nx-teal-line);
+  background: rgba(49, 230, 208, 0.08);
+  color: var(--nx-text-1);
+}
+.atl-check-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  border: 1.5px solid var(--nx-border-strong);
+  background: transparent;
+  color: #01201c;
+  transition: background 0.15s, border-color 0.15s;
+}
+.atl-check.is-on .atl-check-box {
+  background: var(--nx-teal);
+  border-color: var(--nx-teal);
+}
+.atl-check-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.atl-check-short {
+  font-family: var(--atl-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--nx-text-3);
+  flex-shrink: 0;
+}
+.atl-check.is-on .atl-check-short { color: var(--nx-teal); }
+
+/* --- Document intake rows (attach files to an existing shipment) --- */
+.atl-intake {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r);
+  overflow: hidden;
+  background: var(--nx-bg-deep);
+}
+.atl-intake-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--nx-border-subtle);
+}
+.atl-intake-row:last-child { border-bottom: none; }
+.atl-intake-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.atl-intake-name { font-size: 12.5px; font-weight: 600; color: var(--nx-text-1); }
+.atl-intake-note { font-size: 11px; color: var(--nx-text-3); }
+
+/* --- Location combobox --- */
+.atl-combo { position: relative; width: 100%; }
+
+.atl-combo-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--nx-r);
+  border: 1px solid var(--nx-border);
+  background: var(--nx-bg-deep);
+  cursor: text;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.atl-combo-field:hover { border-color: var(--nx-border-strong); }
+.atl-combo-field.is-open,
+.atl-combo-field:focus-within {
+  border-color: var(--nx-teal);
+  box-shadow: 0 0 0 3px rgba(49, 230, 208, 0.10);
+}
+.atl-combo-field.is-disabled { opacity: 0.55; cursor: not-allowed; }
+
+.atl-combo-search { display: flex; color: var(--nx-text-3); flex-shrink: 0; }
+.atl-combo-field.is-open .atl-combo-search { color: var(--nx-teal); }
+
+.atl-combo-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--nx-text-1);
+  font-family: inherit;
+  font-size: 13px;
+}
+.atl-combo-input::placeholder { color: var(--nx-text-3); }
+.atl-combo-input:disabled { cursor: not-allowed; }
+
+.atl-combo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--nx-teal-dim);
+  border: 1px solid var(--nx-teal-line);
+  color: var(--nx-teal);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.atl-combo-tag:hover { background: rgba(49, 230, 208, 0.2); color: var(--nx-teal-bright); }
+.atl-combo-tag svg { width: 11px; height: 11px; }
+
+.atl-combo-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--nx-text-3);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.atl-combo-clear:hover { color: var(--nx-critical); background: var(--nx-critical-dim); }
+
+.atl-combo-caret {
+  display: flex;
+  color: var(--nx-text-3);
+  flex-shrink: 0;
+  transition: transform 0.15s, color 0.15s;
+}
+.atl-combo-caret.is-open { transform: rotate(180deg); color: var(--nx-teal); }
+
+.atl-combo-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 400;
+  max-height: 288px;
+  overflow-y: auto;
+  border-radius: var(--nx-r-lg);
+  border: 1px solid var(--nx-border-strong);
+  background: var(--nx-surface-3);
+  box-shadow: var(--nx-shadow-lg);
+  animation: atl-rise 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.atl-combo-group {
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid var(--nx-border-subtle);
+}
+
+.atl-combo-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--nx-border-subtle);
+  transition: background 0.12s;
+}
+.atl-combo-option:last-child { border-bottom: none; }
+.atl-combo-option.is-active { background: var(--nx-surface-hover); }
+.atl-combo-option.is-selected { box-shadow: inset 2px 0 0 var(--nx-teal); }
+
+.atl-combo-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: var(--nx-surface-1);
+  border: 1px solid var(--nx-border);
+  color: var(--nx-text-3);
+}
+.atl-combo-ico.kind-seaport { color: var(--nx-cyan); border-color: rgba(59, 199, 232, 0.3); }
+.atl-combo-ico.kind-airport { color: #a78bfa; border-color: rgba(167, 139, 250, 0.3); }
+.atl-combo-ico.kind-city { color: var(--nx-teal); border-color: var(--nx-teal-line); }
+.atl-combo-ico.kind-rail { color: var(--nx-warn); border-color: rgba(245, 166, 35, 0.3); }
+.atl-combo-ico.kind-road { color: var(--nx-ok); border-color: rgba(63, 214, 164, 0.3); }
+
+.atl-combo-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.atl-combo-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--nx-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.atl-combo-sub {
+  font-size: 10.5px;
+  color: var(--nx-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.atl-combo-kind {
+  flex-shrink: 0;
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nx-text-3);
+}
+.atl-combo-coord {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--nx-text-3);
+  letter-spacing: 0.02em;
+}
+
+.atl-combo-empty {
+  padding: 16px 14px;
+  font-size: 12px;
+  color: var(--nx-text-3);
+  line-height: 1.6;
+}
+.atl-combo-empty-hint { display: block; margin-top: 3px; font-size: 11px; opacity: 0.75; }
+
+.atl-combo-more {
+  padding: 7px 12px;
+  font-size: var(--atl-micro);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nx-text-3);
+  background: var(--nx-bg-deep);
+  border-top: 1px solid var(--nx-border-subtle);
+}
+
+/* --- Compatibility callout --- */
+.atl-callout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: var(--nx-r);
+  border: 1px solid var(--nx-border);
+  background: var(--nx-surface-1);
+}
+.atl-callout--high { border-color: rgba(255, 112, 67, 0.28); background: rgba(255, 112, 67, 0.06); }
+.atl-callout--warn { border-color: rgba(245, 166, 35, 0.28); background: rgba(245, 166, 35, 0.06); }
+.atl-callout--ok   { border-color: rgba(63, 214, 164, 0.28); background: rgba(63, 214, 164, 0.06); }
+.atl-callout-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nx-text-2);
+}
+.atl-callout--high .atl-callout-head { color: var(--nx-high); }
+.atl-callout--warn .atl-callout-head { color: var(--nx-warn); }
+.atl-callout--ok   .atl-callout-head { color: var(--nx-ok); }
+.atl-callout-head svg { width: 13px; height: 13px; }
+.atl-callout-body { font-size: 12px; color: var(--nx-text-2); line-height: 1.55; }
+
+/* --- AI workspace spine: question → evidence → reasoning → recommendation --- */
+.atl-ai-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.atl-ai-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* --- Structured AI response --- */
+.atl-ai-block {
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r-lg);
+  /* Glass, because this is a reading surface rather than a data grid. */
+  background: linear-gradient(180deg, rgba(11, 27, 35, 0.72), rgba(7, 19, 26, 0.84));
+  backdrop-filter: blur(10px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 12px 32px rgba(0, 0, 0, 0.34);
+  overflow: hidden;
+}
+
+.atl-ai-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--nx-border);
+  background: linear-gradient(180deg, rgba(19, 48, 57, 0.42), rgba(7, 19, 26, 0));
+}
+.atl-ai-product {
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nx-teal);
+}
+.atl-ai-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nx-text-1);
+}
+
+.atl-ai-section {
+  border-bottom: 1px solid var(--nx-border-subtle);
+  padding: 11px 13px;
+}
+.atl-ai-section:last-child { border-bottom: none; }
+
+.atl-ai-section-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--atl-micro);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--nx-text-3);
+  margin-bottom: 6px;
+}
+.atl-ai-section-head svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+.atl-ai-section.tone-evidence .atl-ai-section-head { color: var(--nx-cyan); }
+.atl-ai-section.tone-impact .atl-ai-section-head { color: var(--nx-warn); }
+.atl-ai-section.tone-action .atl-ai-section-head { color: var(--nx-teal); }
+
+.atl-ai-section-body {
+  font-family: var(--atl-ui);
+  font-size: 12.5px;
+  line-height: 1.62;
+  color: var(--nx-text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* Action sections read better slightly stronger */
+.atl-ai-section.tone-action .atl-ai-section-body { color: var(--nx-text-1); }
+
+.atl-ai-section.tone-action {
+  border-left: 2px solid var(--nx-teal);
+  background: rgba(49, 230, 208, 0.04);
+}
+.atl-ai-section.tone-impact {
+  border-left: 2px solid var(--nx-warn);
+  background: rgba(245, 166, 35, 0.04);
+}
+
+/* Fallback for an unrecognised response shape */
+.atl-ai-raw {
+  margin: 0;
+  padding: 12px 13px;
+  font-family: var(--atl-mono);
+  font-size: 11.5px;
+  line-height: 1.68;
+  color: var(--nx-text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.atl-ai-block-empty {
+  padding: 16px 13px;
+  font-size: 12px;
+  color: var(--nx-text-3);
+}
+
+/* --- Evidence list --- */
+.atl-evidence { display: flex; flex-direction: column; }
+.atl-evidence-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--nx-border-subtle);
+}
+.atl-evidence-row:last-child { border-bottom: none; }
+.atl-evidence-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.atl-evidence-body { min-width: 0; flex: 1; }
+.atl-evidence-src { font-size: 11.5px; font-weight: 600; color: var(--nx-text-1); }
+.atl-evidence-val {
+  font-family: var(--atl-mono);
+  font-size: 11px;
+  color: var(--nx-text-2);
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+/* --- Context list (shipment selector) --- */
+.atl-ctx-item {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 13px;
+  border: none;
+  border-bottom: 1px solid var(--nx-border-subtle);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s;
+}
+.atl-ctx-item:hover { background: var(--nx-surface-hover); }
+.atl-ctx-item.is-active { background: var(--nx-surface-hover); box-shadow: inset 2px 0 0 var(--nx-teal); }
+.atl-ctx-main { min-width: 0; }
+
+/* --- Exception card --- */
+.atl-exc {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--nx-r-lg);
+  border: 1px solid var(--nx-border);
+  background: var(--nx-surface-1);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.atl-exc:hover { border-color: var(--nx-border-strong); background: var(--nx-surface-2); }
+.atl-exc-body {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  padding: 13px 14px;
+}
+.atl-exc-strip {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid var(--nx-border);
+  background: var(--nx-bg-deep);
+}
+
+/* ================================================================
+   9. ATLAS MAP  (Phase 2)
+   The map must not read as a default Leaflet surface, so the basemap is
+   heavily re-toned and all chrome is custom.
+   ================================================================ */
+
+.atl-map {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--nx-bg);
+  isolation: isolate;
+}
+
+/* --- Basemap re-tone: near-black oceans, faint land, dim labels --- */
+.atl-map .leaflet-container {
+  background: var(--nx-bg) !important;
+  font-family: var(--atl-ui) !important;
+  outline: none;
+}
+.atl-map .leaflet-tile-pane {
+  /*
+    OpenStreetMap standard tiles are light. Rather than hiding or cropping them
+    (which would breach the provider's attribution terms), they are re-toned
+    here. The previous pass darkened land until it read as flat grey and crushed
+    the place labels; this one keeps land a dark teal-charcoal and leaves enough
+    luminance for label text to stay legible against it.
+  */
+  filter: invert(1) hue-rotate(180deg) saturate(0.65) brightness(0.72) contrast(1.2);
+}
+/* A teal wash over the tiles so the basemap sits in the same colour family as
+   the dashboard. z-index 400 places it above Leaflet's tile canvas (200) but
+   below the overlay pane (400+) that carries routes and markers, so overlays
+   are unaffected. */
+.atl-map .leaflet-tile-pane::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(2, 7, 11, 0.14), rgba(2, 7, 11, 0.24));
+}
+
+/* Leaflet's zoom control is replaced by our own control stack. */
+.atl-map .leaflet-control-zoom { display: none !important; }
+
+/* The attribution control is REQUIRED by the tile provider's terms, so it is
+   kept and restyled as a quiet credit chip rather than hidden or cropped. */
+.atl-map .leaflet-control-attribution {
+  background: rgba(2, 7, 11, 0.72) !important;
+  border: 1px solid var(--nx-border) !important;
+  border-radius: var(--nx-r-sm) !important;
+  color: var(--nx-text-3) !important;
+  font-family: var(--atl-ui) !important;
+  font-size: 9.5px !important;
+  line-height: 1.5 !important;
+  padding: 1px 6px !important;
+  margin: 0 6px 6px 0 !important;
+  max-width: 62% !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.atl-map .leaflet-control-attribution a {
+  color: var(--nx-text-2) !important;
+  text-decoration: none !important;
+}
+.atl-map .leaflet-control-attribution a:hover { color: var(--nx-teal) !important; }
+
+/* Offline / no-tiles mode: keep the surface legible and honest */
+.atl-map--offline .leaflet-tile-pane { display: none; }
+.atl-map--offline {
+  background-color: var(--nx-bg);
+  background-image:
+    radial-gradient(900px 520px at 30% 0%, rgba(49, 230, 208, 0.05), transparent 60%),
+    linear-gradient(to right, rgba(49, 230, 208, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(49, 230, 208, 0.035) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
+}
+
+/* --- Marker reset: divIcons must not inherit Leaflet's white box --- */
+.atl-node, .atl-chevron { background: transparent !important; border: none !important; }
+
+/* --- Animated flow on the selected route only --- */
+.atl-flow { animation: atl-flow 3.2s linear infinite; }
+@keyframes atl-flow { to { stroke-dashoffset: -240; } }
+
+/* --- Floating readout (top-right) --- */
+.atl-map-stats {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  min-width: 158px;
+  padding: 9px 11px;
+  border-radius: var(--nx-r);
+  background: var(--atl-glass);
+  border: 1px solid var(--nx-border-strong);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--nx-shadow);
+}
+.atl-map-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 3px 0;
+}
+.atl-map-stat span {
+  font-size: var(--atl-micro);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nx-text-3);
+}
+.atl-map-stat b {
+  font-family: var(--atl-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--nx-text-1);
+  font-variant-numeric: tabular-nums;
+}
+.atl-map-stat--foot {
+  margin-top: 5px;
+  padding-top: 6px;
+  border-top: 1px solid var(--nx-border);
+}
+
+/* --- Legend (bottom-left) --- */
+.atl-map-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  flex-wrap: wrap;
+  padding: 7px 11px;
+  border-radius: var(--nx-r);
+  background: var(--atl-glass);
+  border: 1px solid var(--nx-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.atl-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--atl-micro);
+  letter-spacing: 0.05em;
+  color: var(--nx-text-2);
+  text-transform: uppercase;
+}
+.atl-legend-item i {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.atl-legend-dashed i {
+  background: none;
+  border-top: 2px dashed var(--nx-teal);
+  height: 0;
+}
+
+/* --- Controls (top-left), aligned with the reference consoles --- */
+.atl-map-controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.atl-map-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--nx-r);
+  background: var(--atl-glass);
+  border: 1px solid var(--nx-border-strong);
+  color: var(--nx-text-2);
+  font-size: 15px;
+  font-family: var(--atl-mono);
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.atl-map-btn:hover {
+  color: var(--nx-teal);
+  border-color: var(--nx-teal-line);
+  background: rgba(11, 27, 35, 0.95);
+}
+.atl-map-btn.is-on {
+  color: var(--nx-teal);
+  border-color: var(--nx-teal-line);
+  background: rgba(49, 230, 208, 0.10);
+}
+.atl-map-btn svg { width: 15px; height: 15px; }
+.atl-map-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* --- Selection panel (bottom-right) — dark glass, as the map's floating layer --- */
+.atl-map-panel {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 600;
+  width: 288px;
+  max-width: calc(100% - 20px);
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(11, 27, 35, 0.80), rgba(5, 13, 18, 0.88));
+  border: 1px solid var(--nx-border-strong);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 18px 44px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(14px) saturate(1.12);
+  -webkit-backdrop-filter: blur(14px) saturate(1.12);
+  animation: atl-rise 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.atl-map-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--nx-teal-line) 20%, var(--nx-teal-line) 80%, transparent);
+  pointer-events: none;
+}
+.atl-map-panel .atl-float-head {
+  background: linear-gradient(180deg, rgba(19, 48, 57, 0.55), rgba(7, 19, 26, 0));
+}
+
+/* --- Offline notice (top-centre) --- */
+.atl-map-notice {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 550;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: var(--nx-r);
+  background: rgba(245, 166, 35, 0.10);
+  border: 1px solid rgba(245, 166, 35, 0.28);
+  color: var(--nx-warn);
+  font-size: var(--atl-micro);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.atl-map-notice svg { width: 12px; height: 12px; }
+
+/* --- Optional footer slot --- */
+.atl-map-footer {
+  position: absolute;
+  left: 10px;
+  bottom: 46px;
+  z-index: 520;
+}
+
+/* Leaflet popup — dark glass, matching the floating selection panel */
+.atl-map .leaflet-popup-content-wrapper {
+  background: linear-gradient(180deg, rgba(11, 27, 35, 0.82), rgba(5, 13, 18, 0.90));
+  color: var(--nx-text-1);
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-r);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 14px 34px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+}
+.atl-map .leaflet-popup-content { margin: 9px 11px; font-size: var(--atl-meta); }
+.atl-map .leaflet-popup-tip {
+  background: rgba(7, 19, 26, 0.92);
+  border: 1px solid var(--nx-border-strong);
+}
+.atl-map .leaflet-popup-close-button { color: var(--nx-text-3); }
+.atl-map .leaflet-popup-close-button:hover { color: var(--nx-text-1); }
+
+/* ================================================================
+   8. REDUCED MOTION + RESPONSIVE
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .atl-rise { animation: none; }
+  .nx-live-dot { animation: none; }
+  .atl-flow { animation: none; }
+  .atl-map-panel { animation: none; }
+}
+
+@media (max-width: 1024px) {
+  :root { --atl-gutter: 10px; }
+
+  /* Composition collapses to single column; the map keeps its height. */
+  .atl-split--map,
+  .atl-split--even,
+  .atl-split--detail { grid-template-columns: minmax(0, 1fr); }
+  .atl-ai-grid { grid-template-columns: minmax(0, 1fr); }
+  .atl-rail { flex-direction: row; flex-wrap: wrap; }
+  .atl-rail > * { flex: 1 1 320px; }
+}
+
+@media (max-width: 768px) {
+  :root { --atl-gutter: 8px; --atl-metric-lg: 18px; }
+  .atl-float { max-width: calc(100vw - 24px); }
+
+  /* Keep the canvas usable: hide readouts, dock the panel along the bottom */
+  .atl-map-stats { display: none; }
+  .atl-map-legend { gap: 9px; padding: 6px 9px; }
+  .atl-map-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: 52%;
+  }
+  .atl-map-controls { top: 8px; left: 8px; }
+
+  .atl-hero { align-items: flex-start; }
+  .atl-hero-side { gap: 16px; }
+  .atl-hero-kpi { text-align: left; }
+  .atl-metric-pair { grid-template-columns: 1fr; }
+  .atl-rail { flex-direction: column; }
+  .atl-rail > * { flex: 1 1 auto; }
+}
+
+@media (max-width: 520px) {
+  .atl-legend-item span { display: none; }
+  .atl-map-legend { gap: 8px; }
+  .atl-exc-body { gap: 12px; }
+}

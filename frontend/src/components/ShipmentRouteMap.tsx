@@ -1,24 +1,25 @@
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const originIcon = L.divIcon({
   className: '',
-  html: '<div style="width:14px;height:14px;background:#22d3ee;border:2.5px solid #0a0e18;border-radius:50%;box-shadow:0 0 10px rgba(34,211,238,0.5)"></div>',
+  html: '<div style="width:13px;height:13px;background:#2dd4bf;border:2.5px solid #05070a;border-radius:50%;box-shadow:0 0 10px rgba(45,212,191,0.55)"></div>',
   iconSize: [18, 18], iconAnchor: [9, 9],
 });
+
 const destIcon = L.divIcon({
   className: '',
-  html: '<div style="width:14px;height:14px;background:#f87171;border:2.5px solid #0a0e18;border-radius:50%;box-shadow:0 0 10px rgba(248,113,113,0.5)"></div>',
+  html: '<div style="width:13px;height:13px;background:#f43f5e;border:2.5px solid #05070a;border-radius:50%;box-shadow:0 0 10px rgba(244,63,94,0.5)"></div>',
   iconSize: [18, 18], iconAnchor: [9, 9],
 });
 
 function makeVehicleIcon(emoji: string) {
   return L.divIcon({
     className: '',
-    html: `<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.7));line-height:1">${emoji}</div>`,
-    iconSize: [30, 30], iconAnchor: [15, 15],
+    html: `<div style="font-size:22px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.75));line-height:1">${emoji}</div>`,
+    iconSize: [28, 28], iconAnchor: [14, 14],
   });
 }
 
@@ -30,7 +31,7 @@ const MODE_ICONS: Record<string, string> = {
 };
 
 function getVehicleIcon(mode: string) {
-  return makeVehicleIcon(MODE_ICONS[mode] || MODE_ICONS.OCEAN);
+  return makeVehicleIcon(MODE_ICONS[(mode || '').toUpperCase()] || MODE_ICONS.OCEAN);
 }
 
 function interpolate(a: number, b: number, t: number) {
@@ -39,9 +40,11 @@ function interpolate(a: number, b: number, t: number) {
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
@@ -69,28 +72,38 @@ function interpolateAlongRoute(waypoints: number[][], fraction: number): [number
   return [waypoints[waypoints.length - 1][0], waypoints[waypoints.length - 1][1]];
 }
 
+/**
+ * Fits the map to the route. Runs as an effect (not useMemo) so the pending
+ * fit is cancelled when the map unmounts or waypoints change.
+ */
 function FitRoute({ waypoints }: { waypoints: number[][] }) {
   const map = useMap();
-  useMemo(() => {
-    if (waypoints.length > 1) {
-      const bounds = L.latLngBounds(waypoints.map(wp => [wp[0], wp[1]] as [number, number]));
-      setTimeout(() => map.fitBounds(bounds, { padding: [50, 50] }), 100);
-    }
+  useEffect(() => {
+    if (waypoints.length < 2) return;
+    const bounds = L.latLngBounds(waypoints.map(wp => [wp[0], wp[1]] as [number, number]));
+    const t = window.setTimeout(() => {
+      // Guard against a map that has already been torn down.
+      if (!map.getContainer()) return;
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }, 100);
+    return () => window.clearTimeout(t);
   }, [waypoints, map]);
   return null;
 }
 
+/** Pulsing ring at the live position. Managed as an effect so the layer is removed. */
 function PulseMarker({ position }: { position: [number, number] }) {
   const map = useMap();
-  useMemo(() => {
+  useEffect(() => {
     const pulse = L.divIcon({
       className: '',
-      html: `<div style="width:24px;height:24px;border-radius:50%;border:2px solid #38bdf8;animation:nx-pulse-ring 2s ease-out infinite;position:absolute;top:-12px;left:-12px;pointer-events:none"></div>`,
-      iconSize: [24, 24], iconAnchor: [12, 12],
+      html: '<div style="width:22px;height:22px;border-radius:50%;border:2px solid #2dd4bf;animation:nx-pulse-ring 2s ease-out infinite;position:absolute;top:-11px;left:-11px;pointer-events:none"></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
     });
     const marker = L.marker(position, { icon: pulse, interactive: false }).addTo(map);
-    return () => { map.removeLayer(marker); };
-  }, [map, position[0], position[1]]);
+    return () => { marker.remove(); };
+  }, [map, position]);
   return null;
 }
 
@@ -101,13 +114,18 @@ interface ShipmentRouteMapProps {
 }
 
 export default function ShipmentRouteMap({ shipment, disruptions = [], height = '100%' }: ShipmentRouteMapProps) {
-  const origin: [number, number] = [shipment.origin_lat || 0, shipment.origin_lng || 0];
-  const dest: [number, number] = [shipment.destination_lat || 0, shipment.destination_lng || 0];
+  const origin = useMemo<[number, number]>(
+    () => [shipment.origin_lat || 0, shipment.origin_lng || 0],
+    [shipment.origin_lat, shipment.origin_lng]
+  );
+  const dest = useMemo<[number, number]>(
+    () => [shipment.destination_lat || 0, shipment.destination_lng || 0],
+    [shipment.destination_lat, shipment.destination_lng]
+  );
 
   const waypoints: number[][] = useMemo(() => {
-    if (shipment.route_waypoints && shipment.route_waypoints.length >= 2) {
-      return shipment.route_waypoints;
-    }
+    const raw = shipment.route_waypoints;
+    if (Array.isArray(raw) && raw.length >= 2) return raw;
     const segs = 8;
     const pts: number[][] = [];
     for (let i = 0; i <= segs; i++) {
@@ -115,14 +133,13 @@ export default function ShipmentRouteMap({ shipment, disruptions = [], height = 
       pts.push([interpolate(origin[0], dest[0], t), interpolate(origin[1], dest[1], t)]);
     }
     return pts;
-  }, [shipment.route_waypoints, origin[0], origin[1], dest[0], dest[1]]);
+  }, [shipment.route_waypoints, origin, dest]);
 
   const progressFraction = Math.max(0, Math.min(1, (shipment.progress_percent || 0) / 100));
 
-  const currentPosition: [number, number] = useMemo(() => {
-    if (shipment.latest_tracking?.lat && shipment.latest_tracking?.lng) {
-      return [shipment.latest_tracking.lat, shipment.latest_tracking.lng];
-    }
+  const currentPosition = useMemo<[number, number]>(() => {
+    const lt = shipment.latest_tracking;
+    if (lt && Number.isFinite(lt.lat) && Number.isFinite(lt.lng)) return [lt.lat, lt.lng];
     return interpolateAlongRoute(waypoints, progressFraction);
   }, [shipment.latest_tracking, waypoints, progressFraction]);
 
@@ -139,15 +156,16 @@ export default function ShipmentRouteMap({ shipment, disruptions = [], height = 
   const remainingWaypoints = waypoints.slice(completedIdx);
 
   return (
-    <div style={{ height, width: '100%', background: '#080c14', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ height, width: '100%', position: 'relative', overflow: 'hidden' }}>
       <style>{`@keyframes nx-pulse-ring{0%{transform:scale(0.8);opacity:1}100%{transform:scale(2);opacity:0}}`}</style>
+
       <MapContainer
         center={center}
         zoom={3}
         style={{ height: '100%', width: '100%' }}
-        zoomControl={true}
+        zoomControl={false}
         attributionControl={false}
-        scrollWheelZoom={true}
+        scrollWheelZoom
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -158,29 +176,30 @@ export default function ShipmentRouteMap({ shipment, disruptions = [], height = 
         {completedWaypoints.length > 1 && (
           <Polyline
             positions={completedWaypoints.map((wp: number[]) => [wp[0], wp[1]] as [number, number])}
-            pathOptions={{ color: '#38bdf8', weight: 3, opacity: 0.85 }}
+            pathOptions={{ color: '#2dd4bf', weight: 3, opacity: 0.9 }}
           />
         )}
         {remainingWaypoints.length > 1 && (
           <Polyline
             positions={remainingWaypoints.map((wp: number[]) => [wp[0], wp[1]] as [number, number])}
-            pathOptions={{ color: '#475569', weight: 2, opacity: 0.45, dashArray: '8 6' }}
+            pathOptions={{ color: '#475569', weight: 2, opacity: 0.5, dashArray: '7 6' }}
           />
         )}
 
         <Marker position={origin} icon={originIcon}>
           <Popup>
-            <div style={{ fontFamily: 'Public Sans, sans-serif' }}>
-              <div style={{ fontWeight: 700, color: '#22d3ee', fontSize: 12 }}>ORIGIN</div>
-              <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{shipment.origin_name}</div>
+            <div>
+              <div className="nx-popup-title">ORIGIN</div>
+              <div className="nx-popup-route">{shipment.origin_name}</div>
             </div>
           </Popup>
         </Marker>
+
         <Marker position={dest} icon={destIcon}>
           <Popup>
-            <div style={{ fontFamily: 'Public Sans, sans-serif' }}>
-              <div style={{ fontWeight: 700, color: '#f87171', fontSize: 12 }}>DESTINATION</div>
-              <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{shipment.destination_name}</div>
+            <div>
+              <div className="nx-popup-title" style={{ color: '#f43f5e' }}>DESTINATION</div>
+              <div className="nx-popup-route">{shipment.destination_name}</div>
             </div>
           </Popup>
         </Marker>
@@ -190,13 +209,13 @@ export default function ShipmentRouteMap({ shipment, disruptions = [], height = 
             <PulseMarker position={currentPosition} />
             <Marker position={currentPosition} icon={getVehicleIcon(shipment.transport_mode)}>
               <Popup>
-                <div style={{ fontFamily: 'Public Sans, sans-serif' }}>
-                  <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: 13 }}>{shipment.shipment_ref}</div>
-                  <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>
-                    {shipment.latest_tracking?.location_name || 'In Transit'}
+                <div>
+                  <div className="nx-popup-title">{shipment.shipment_ref}</div>
+                  <div className="nx-popup-route">
+                    {shipment.latest_tracking?.location_name || 'In transit'}
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
-                    Progress: {Math.round(progressFraction * 100)}%
+                  <div className="nx-popup-meta">
+                    Progress {Math.round(progressFraction * 100)}%
                   </div>
                 </div>
               </Popup>
@@ -206,44 +225,38 @@ export default function ShipmentRouteMap({ shipment, disruptions = [], height = 
 
         {disruptions.map((d: any, i: number) => (
           <Circle
-            key={i}
+            key={d.id ?? i}
             center={[d.lat, d.lng]}
             radius={80000}
             pathOptions={{ color: '#fbbf24', fillColor: '#fbbf24', fillOpacity: 0.06, weight: 1, dashArray: '4 4' }}
           >
             <Popup>
-              <div style={{ fontFamily: 'Public Sans, sans-serif' }}>
-                <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: 12 }}>{d.location_name}</div>
-                <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>{d.category}: {d.severity}</div>
+              <div>
+                <div className="nx-popup-title" style={{ color: '#fbbf24' }}>{d.location_name}</div>
+                <div className="nx-popup-route">
+                  {String(d.category || '').replace(/_/g, ' ')} · {d.severity}
+                </div>
               </div>
             </Popup>
           </Circle>
         ))}
       </MapContainer>
 
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, padding: '4px 10px', borderRadius: 6, background: 'rgba(10,14,24,0.85)', backdropFilter: 'blur(4px)', border: '1px solid rgba(56,189,248,0.15)' }}>
-        <span style={{ fontSize: 9, color: 'rgba(56,189,248,0.6)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>SIMULATED TRACKING</span>
+      {/* Overlay chrome */}
+      <div style={{
+        position: 'absolute', top: 10, right: 10, zIndex: 1000,
+        padding: '4px 9px', borderRadius: 'var(--nx-r-sm)',
+        background: 'rgba(7,9,13,0.85)', backdropFilter: 'blur(6px)',
+        border: '1px solid var(--nx-border)',
+      }}>
+        <span className="nx-label" style={{ color: 'var(--nx-teal)' }}>Simulated tracking</span>
       </div>
 
-      <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, padding: '6px 12px', borderRadius: 8, background: 'rgba(10,14,24,0.85)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22d3ee', boxShadow: '0 0 6px #22d3ee' }} />
-            <span style={{ color: '#94a3b8' }}>Origin</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 20, height: 2, background: '#38bdf8', borderRadius: 1 }} />
-            <span style={{ color: '#94a3b8' }}>Completed</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 20, height: 2, background: '#475569', borderRadius: 1, borderTop: '1px dashed #475569' }} />
-            <span style={{ color: '#94a3b8' }}>Remaining</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171', boxShadow: '0 0 6px #f87171' }} />
-            <span style={{ color: '#94a3b8' }}>Destination</span>
-          </div>
-        </div>
+      <div className="nx-map-legend" style={{ bottom: 10, left: 10 }}>
+        <span className="nx-legend-item"><span className="nx-legend-dot" style={{ background: '#2dd4bf' }} />Origin</span>
+        <span className="nx-legend-item"><span className="nx-legend-line" style={{ background: '#2dd4bf' }} />Completed</span>
+        <span className="nx-legend-item"><span className="nx-legend-line" style={{ background: '#475569' }} />Remaining</span>
+        <span className="nx-legend-item"><span className="nx-legend-dot" style={{ background: '#f43f5e' }} />Destination</span>
       </div>
     </div>
   );

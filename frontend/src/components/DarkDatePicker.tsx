@@ -20,7 +20,7 @@ const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 export default function DarkDatePicker({ value, onChange, placeholder = 'Select date & time' }: DarkDatePickerProps) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
@@ -33,22 +33,22 @@ export default function DarkDatePicker({ value, onChange, placeholder = 'Select 
 
   const [viewYear, setViewYear] = useState(() => parsed?.getFullYear() ?? new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => parsed?.getMonth() ?? new Date().getMonth());
-  const [hour, setHour] = useState(() => parsed ? (parsed.getHours() % 12 || 12) : 9);
-  const [minute, setMinute] = useState(() => parsed ? parsed.getMinutes() : 0);
-  const [ampm, setAmpm] = useState<'AM' | 'PM'>(() => parsed ? (parsed.getHours() >= 12 ? 'PM' : 'AM') : 'AM');
+  const [hour, setHour] = useState(() => (parsed ? parsed.getHours() % 12 || 12 : 9));
+  const [minute, setMinute] = useState(() => (parsed ? parsed.getMinutes() : 0));
+  const [ampm, setAmpm] = useState<'AM' | 'PM'>(() => (parsed && parsed.getHours() >= 12 ? 'PM' : 'AM'));
   const [pickMode, setPickMode] = useState<'day' | 'hour' | 'minute'>('day');
 
   const updatePos = useCallback(() => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const popupH = 380;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const showAbove = spaceBelow < popupH + 8;
-      setPos({
-        top: showAbove ? rect.top - popupH - 6 : rect.bottom + 6,
-        left: Math.min(rect.left, window.innerWidth - 320),
-      });
-    }
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const popupH = 380;
+    const popupW = 310;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const showAbove = spaceBelow < popupH + 8;
+    setPos({
+      top: showAbove ? Math.max(8, rect.top - popupH - 6) : rect.bottom + 6,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - popupW - 8)),
+    });
   }, []);
 
   useEffect(() => {
@@ -62,54 +62,54 @@ export default function DarkDatePicker({ value, onChange, placeholder = 'Select 
   }, [value]);
 
   useEffect(() => {
-    if (open) {
-      updatePos();
-      const onScroll = () => updatePos();
-      const onResize = () => updatePos();
-      window.addEventListener('scroll', onScroll, true);
-      window.addEventListener('resize', onResize);
-      return () => {
-        window.removeEventListener('scroll', onScroll, true);
-        window.removeEventListener('resize', onResize);
-      };
-    }
+    if (!open) return;
+    updatePos();
+    const onScroll = () => updatePos();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
   }, [open, updatePos]);
 
+  // Outside click + Escape to dismiss.
   useEffect(() => {
+    if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as HTMLElement) &&
-          triggerRef.current && !triggerRef.current.contains(e.target as HTMLElement)) {
-        setOpen(false);
-        setPickMode('day');
-      }
+      const target = e.target as HTMLElement;
+      if (popupRef.current?.contains(target)) return;
+      if (triggerRef.current?.contains(target)) return;
+      setOpen(false);
+      setPickMode('day');
     };
-    if (open) {
-      setTimeout(() => document.addEventListener('mousedown', onDown), 0);
-      return () => document.removeEventListener('mousedown', onDown);
-    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); setPickMode('day'); triggerRef.current?.focus(); }
+    };
+    const t = window.setTimeout(() => document.addEventListener('mousedown', onDown), 0);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const emitValue = (y: number, m: number, d: number, h: number, min: number) => {
-    const dt = new Date(y, m, d, h, min);
     const pad = (n: number) => String(n).padStart(2, '0');
-    const iso = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(h)}:${pad(min)}`;
-    onChange(iso);
+    onChange(`${y}-${pad(m + 1)}-${pad(d)}T${pad(h)}:${pad(min)}`);
   };
 
+  const to24 = (h12: number, ap: 'AM' | 'PM') => (ap === 'PM' ? (h12 % 12) + 12 : h12 % 12);
+
   const selectDay = (day: number) => {
-    const h24 = ampm === 'PM' ? (hour % 12) + 12 : hour % 12;
-    emitValue(viewYear, viewMonth, day, h24, minute);
+    emitValue(viewYear, viewMonth, day, to24(hour, ampm), minute);
     setPickMode('hour');
   };
 
-  const selectHour = (h: number) => {
-    setHour(h);
-    setPickMode('minute');
-  };
-
   const selectMinute = (m: number) => {
-    const h24 = ampm === 'PM' ? (hour % 12) + 12 : hour % 12;
-    emitValue(viewYear, viewMonth, parsed?.getDate() ?? new Date().getDate(), h24, m);
+    const day = parsed?.getDate() ?? new Date().getDate();
+    emitValue(viewYear, viewMonth, day, to24(hour, ampm), m);
     setMinute(m);
     setOpen(false);
     setPickMode('day');
@@ -118,8 +118,8 @@ export default function DarkDatePicker({ value, onChange, placeholder = 'Select 
   const toggleAmpm = () => {
     const next = ampm === 'AM' ? 'PM' : 'AM';
     setAmpm(next);
-    const h24 = next === 'PM' ? (hour % 12) + 12 : hour % 12;
-    emitValue(viewYear, viewMonth, parsed?.getDate() ?? new Date().getDate(), h24, minute);
+    const day = parsed?.getDate() ?? new Date().getDate();
+    emitValue(viewYear, viewMonth, day, to24(hour, next), minute);
   };
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth);
@@ -137,75 +137,136 @@ export default function DarkDatePicker({ value, onChange, placeholder = 'Select 
 
   return (
     <>
-      <div ref={triggerRef} style={{ position: 'relative' }}>
-        <div
-          onClick={() => { setOpen(o => !o); setPickMode('day'); }}
-          className="nx-datepicker-trigger"
-        >
-          <span>{displayValue || placeholder}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--ds-gray-500)', flexShrink: 0 }}>
-            <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
-          </svg>
-        </div>
-      </div>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="nx-datepicker-trigger"
+        style={{ width: '100%' }}
+        onClick={() => { setOpen(o => !o); setPickMode('day'); }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span style={{ color: displayValue ? 'var(--nx-text-1)' : 'var(--nx-text-3)' }}>
+          {displayValue || placeholder}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--nx-text-3)', flexShrink: 0 }} aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
+        </svg>
+      </button>
 
       {open && (
-        <div ref={popupRef} className="nx-datepicker-popup" style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}>
+        <div
+          ref={popupRef}
+          className="nx-datepicker-popup"
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+          role="dialog"
+          aria-label="Select date and time"
+        >
           {pickMode === 'day' && (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 10px' }}>
-                <button onClick={() => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); }}
-                  style={navBtnStyle}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 8px' }}>
+                <button
+                  type="button"
+                  className="nx-datepicker-cell"
+                  style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  aria-label="Previous month"
+                  onClick={() => {
+                    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+                    else setViewMonth(m => m - 1);
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#e8eaf0', letterSpacing: '0.02em' }}>{MONTHS[viewMonth]} {viewYear}</span>
-                <button onClick={() => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); }}
-                  style={navBtnStyle}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--nx-text-1)', letterSpacing: '0.02em' }}>
+                  {MONTHS[viewMonth]} {viewYear}
+                </span>
+                <button
+                  type="button"
+                  className="nx-datepicker-cell"
+                  style={{ width: 28, height: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  aria-label="Next month"
+                  onClick={() => {
+                    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+                    else setViewMonth(m => m + 1);
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 10px 4px', gap: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 10px 4px' }}>
                 {DAYS.map(d => (
-                  <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#5e6478', padding: '4px 0', letterSpacing: '0.05em' }}>{d}</div>
+                  <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: 'var(--nx-text-3)', padding: '3px 0', letterSpacing: '0.05em' }}>
+                    {d}
+                  </div>
                 ))}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 10px 6px', gap: 2 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '0 10px 8px', gap: 2 }}>
                 {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />)}
                 {Array.from({ length: daysInMonth }, (_, i) => {
                   const day = i + 1;
-                  const isSelected = parsed && parsed.getDate() === day && parsed.getMonth() === viewMonth && parsed.getFullYear() === viewYear;
+                  const isSelected = !!parsed && parsed.getDate() === day && parsed.getMonth() === viewMonth && parsed.getFullYear() === viewYear;
                   const isToday = isCurrentMonth && today.getDate() === day;
                   return (
-                    <div key={day} onClick={() => selectDay(day)}
-                      className={`nx-datepicker-day${isSelected ? ' selected' : ''}${isToday && !isSelected ? ' today' : ''}`}>
+                    <button
+                      key={day}
+                      type="button"
+                      className={`nx-datepicker-day${isSelected ? ' selected' : ''}${isToday && !isSelected ? ' today' : ''}`}
+                      style={{ border: 'none', fontFamily: 'inherit' }}
+                      aria-label={`Select ${MONTHS[viewMonth]} ${day}, ${viewYear}`}
+                      aria-current={isSelected ? 'date' : undefined}
+                      onClick={() => selectDay(day)}
+                    >
                       {day}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 14px 10px', borderTop: '1px solid rgba(30,34,49,0.8)' }}>
-                <button onClick={() => { const n = new Date(); setViewYear(n.getFullYear()); setViewMonth(n.getMonth()); emitValue(n.getFullYear(), n.getMonth(), n.getDate(), hour, minute); setOpen(false); setPickMode('day'); }}
-                  style={{ background: 'none', border: 'none', color: '#00d4aa', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>Today</button>
-                <button onClick={() => { onChange(''); setOpen(false); setPickMode('day'); }}
-                  style={{ background: 'none', border: 'none', color: '#5e6478', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px 10px', borderTop: '1px solid var(--nx-border)' }}>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: 'var(--nx-teal)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.03em', padding: 0 }}
+                  onClick={() => {
+                    const n = new Date();
+                    setViewYear(n.getFullYear());
+                    setViewMonth(n.getMonth());
+                    emitValue(n.getFullYear(), n.getMonth(), n.getDate(), hour, minute);
+                    setOpen(false);
+                    setPickMode('day');
+                  }}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: 'var(--nx-text-3)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                  onClick={() => { onChange(''); setOpen(false); setPickMode('day'); }}
+                >
+                  Clear
+                </button>
               </div>
             </>
           )}
 
           {pickMode === 'hour' && (
             <>
-              <div style={{ padding: '14px 14px 8px', borderBottom: '1px solid rgba(30,34,49,0.8)' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#5e6478', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Select Hour</span>
+              <div style={{ padding: '13px 12px 8px', borderBottom: '1px solid var(--nx-border)' }}>
+                <span className="nx-label">Select hour</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, padding: 12 }}>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
-                  <div key={h} onClick={() => selectHour(h)}
-                    className={`nx-datepicker-cell${h === hour ? ' active' : ''}`}>
+                  <button
+                    key={h}
+                    type="button"
+                    className={`nx-datepicker-cell${h === hour ? ' active' : ''}`}
+                    style={{ border: 'none', fontFamily: 'inherit' }}
+                    aria-label={`Hour ${h} ${ampm}`}
+                    onClick={() => { setHour(h); setPickMode('minute'); }}
+                  >
                     {String(h).padStart(2, '0')}
-                  </div>
+                  </button>
                 ))}
               </div>
             </>
@@ -213,26 +274,26 @@ export default function DarkDatePicker({ value, onChange, placeholder = 'Select 
 
           {pickMode === 'minute' && (
             <>
-              <div style={{ padding: '14px 14px 8px', borderBottom: '1px solid rgba(30,34,49,0.8)' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#5e6478', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Select Minute</span>
+              <div style={{ padding: '13px 12px 8px', borderBottom: '1px solid var(--nx-border)' }}>
+                <span className="nx-label">Select minute</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, padding: 12 }}>
                 {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                  <div key={m} onClick={() => selectMinute(m)}
-                    className={`nx-datepicker-cell${m === minute ? ' active' : ''}`}>
+                  <button
+                    key={m}
+                    type="button"
+                    className={`nx-datepicker-cell${m === minute ? ' active' : ''}`}
+                    style={{ border: 'none', fontFamily: 'inherit' }}
+                    aria-label={`Minute ${m}`}
+                    onClick={() => selectMinute(m)}
+                  >
                     {String(m).padStart(2, '0')}
-                  </div>
+                  </button>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 6, padding: '0 12px 12px' }}>
-                <button onClick={toggleAmpm}
-                  className="nx-datepicker-ampm active">
-                  {ampm}
-                </button>
-                <button onClick={() => setPickMode('hour')}
-                  className="nx-datepicker-ampm">
-                  Back
-                </button>
+                <button type="button" className="nx-datepicker-ampm active" onClick={toggleAmpm}>{ampm}</button>
+                <button type="button" className="nx-datepicker-ampm" onClick={() => setPickMode('hour')}>Back</button>
               </div>
             </>
           )}
@@ -241,9 +302,3 @@ export default function DarkDatePicker({ value, onChange, placeholder = 'Select 
     </>
   );
 }
-
-const navBtnStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(30,34,49,0.6)',
-  background: 'transparent', color: '#a8aebb', cursor: 'pointer', transition: 'all 0.15s',
-};

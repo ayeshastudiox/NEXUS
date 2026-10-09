@@ -78,7 +78,41 @@ export async function getShipmentDelay(id: string) {
 }
 
 export async function getShipmentDocuments(id: string) {
-  return fetchAPI<any>(`/shipments/${id}/documents`);
+  const res = await fetchAPI<any>(`/shipments/${id}/documents`);
+  // Backend returns { documents: [...], discrepancies: [...] }
+  return {
+    documents: Array.isArray(res?.documents) ? res.documents : [],
+    discrepancies: Array.isArray(res?.discrepancies) ? res.discrepancies : [],
+  };
+}
+
+/**
+ * Attach a document to an existing shipment.
+ *
+ * This bypasses `fetchAPI` deliberately: the endpoint consumes multipart form
+ * data and `doc_type` is a *query* parameter, whereas `fetchAPI` always sets
+ * `Content-Type: application/json`. Letting the browser set the multipart
+ * boundary is required.
+ */
+export async function uploadShipmentDocument(id: string, docType: string, file: File) {
+  const body = new FormData();
+  body.append('file', file);
+
+  const token = localStorage.getItem('nexus-token');
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(
+    `${API_BASE}/shipments/${encodeURIComponent(id)}/documents?doc_type=${encodeURIComponent(docType)}`,
+    { method: 'POST', headers, body }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: null }));
+    const detail = typeof err?.detail === 'string' ? err.detail : null;
+    throw new Error(detail || `Upload failed (HTTP ${res.status})`);
+  }
+  return res.json();
 }
 
 export async function getDisruptions() {

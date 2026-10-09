@@ -1,163 +1,270 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getShipments, getAlerts, getMetrics, getDisruptions } from '../lib/api';
-import { getRiskColor } from '../lib/format';
-import WorldVisualization from '../components/WorldVisualization';
+import { getAlerts, getDisruptions, getNetworkHubs, getShipments } from '../lib/api';
+import AtlasMap from '../components/map/AtlasMap';
+import {
+  Badge, Empty, Glyph, Metric, ModeBadge, Panel, RiskPill, StateBlock,
+  humanize, severityTone, statusTone,
+} from '../components/ui';
+import { IconArrowRight } from '../components/Icons';
+import { deriveSignals, signalTime } from '../lib/signals';
 
 const MODES = ['ALL', 'OCEAN', 'AIR', 'ROAD', 'RAIL'] as const;
+const ACTIVE_STATUSES = ['IN_TRANSIT', 'DELAYED', 'AT_PORT', 'AWAITING_CLEARANCE'];
+const POLL_MS = 30000;
 
 export default function CommandCenter() {
+  const navigate = useNavigate();
+
   const [shipments, setShipments] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [hubs, setHubs] = useState<any[]>([]);
   const [disruptions, setDisruptions] = useState<any[]>([]);
   const [mode, setMode] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [s, a, h, d] = await Promise.all([
+        getShipments({ limit: '200' }),
+        getAlerts().catch(() => []),
+        getNetworkHubs().catch(() => []),
+        getDisruptions().catch(() => []),
+      ]);
+      setShipments(Array.isArray(s) ? s : []);
+      setAlerts(Array.isArray(a) ? a : []);
+      setHubs(Array.isArray(h) ? h : []);
+      setDisruptions(Array.isArray(d) ? d : []);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 30000);
+    const t = setInterval(load, POLL_MS);
     return () => clearInterval(t);
-  }, []);
+  }, [load]);
 
-  const load = async () => {
-    try {
-      const [s, a, , d] = await Promise.all([getShipments(), getAlerts(), getMetrics(), getDisruptions()]);
-      setShipments(s); setAlerts(a); setDisruptions(d);
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  };
-
-  if (loading) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="ds-spinner" />
-    </div>
+  const filtered = useMemo(
+    () => (mode === 'ALL' ? shipments : shipments.filter(s => (s.transport_mode || '').toUpperCase() === mode)),
+    [shipments, mode]
   );
 
-  const filtered = mode === 'ALL' ? shipments : shipments.filter(s => s.transport_mode === mode);
-  const active = filtered.filter(s => ['IN_TRANSIT', 'DELAYED', 'AT_PORT', 'AWAITING_CLEARANCE'].includes(s.status));
+  const active = useMemo(
+    () => filtered.filter(s => ACTIVE_STATUSES.includes(s.status)),
+    [filtered]
+  );
+
+  const ranked = useMemo(
+    () => [...filtered].sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0)),
+    [filtered]
+  );
+
+  const signals = useMemo(() => deriveSignals(alerts, shipments), [alerts, shipments]);
+
+  if (loading) {
+    return (
+      <div className="nx-page">
+        <StateBlock title="Bringing command center online" spinner />
+      </div>
+    );
+  }
+
+  if (failed && shipments.length === 0) {
+    return (
+      <div className="nx-page">
+        <StateBlock
+          title="Command center unavailable"
+          text="The NEXUS API did not respond."
+          action={<button className="nx-btn nx-btn-primary" onClick={load}>Retry</button>}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="ds-page">
-      {/* Mode filter pills */}
-      <div className="ds-page-header">
-        <div>
-          <div className="ds-page-title">Command Center</div>
-          <div className="ds-page-sub">Live monitoring across all transport modes</div>
+    <div className="nx-page">
+      <header className="atl-hero">
+        <div className="atl-hero-main">
+          <div className="nx-eyebrow">Command Center</div>
+          <h1 className="atl-display" style={{ marginTop: 6 }}>Live Operations Monitoring</h1>
+          <p className="nx-body" style={{ marginTop: 5 }}>
+            {active.length} active movements · {disruptions.length} disruptions in scope · refreshing every 30s
+          </p>
         </div>
-        <div className="ds-nav-pills">
+        <div className="nx-pills">
           {MODES.map(m => (
-            <button key={m} className={`ds-nav-pill ${mode === m ? 'active' : ''}`} onClick={() => setMode(m)}>
-              {m === 'ALL' ? 'All Modes' : m.charAt(0) + m.slice(1).toLowerCase()}
+            <button key={m} className={`nx-pill${mode === m ? ' active' : ''}`} onClick={() => setMode(m)}>
+              {m === 'ALL' ? 'All modes' : m}
             </button>
           ))}
         </div>
+      </header>
+
+      <div className="nx-metrics">
+        <Metric label="In scope" value={filtered.length} note={mode === 'ALL' ? 'all transport modes' : `${mode} only`} tone="teal" />
+        <Metric label="Active" value={active.length} note="in transit or awaiting" />
+        <Metric
+          label="Delayed"
+          value={filtered.filter(s => s.status === 'DELAYED').length}
+          note="schedule variance"
+          tone="warn"
+        />
+        <Metric
+          label="High risk"
+          value={filtered.filter(s => ['HIGH', 'CRITICAL'].includes((s.risk_level || '').toUpperCase())).length}
+          note="escalation advised"
+          tone="high"
+        />
+        <Metric
+          label="Disruptions"
+          value={disruptions.length}
+          note={disruptions.length > 0 ? disruptions.map((d: any) => d.location_name).join(', ') : 'lanes clear'}
+          tone={disruptions.length > 0 ? 'critical' : undefined}
+        />
       </div>
 
-      {/* Metrics cards */}
-      <div className="ds-grid ds-grid-4 ds-grid-row">
-        <div className="ds-stat-card">
-          <div className="ds-stat-card-top">
-            <div className="ds-icon-shape ds-icon-primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>
+      {/* ---- Live map + verified alerts ---- */}
+      <div className="atl-split atl-split--map">
+        <section className="atl-chrome atl-chrome--tall">
+          <div className="atl-chrome-head">
+            <span className="atl-chrome-title">
+              <Glyph name="command" />
+              Live Network Map
+            </span>
+            <div className="nx-panel-actions">
+              <Badge tone="teal">{active.length} live</Badge>
             </div>
-            <div className="ds-stat-label">Total Shipments</div>
           </div>
-          <div className="ds-stat-card-bottom"><div className="ds-stat-value">{filtered.length}</div></div>
-        </div>
-        <div className="ds-stat-card">
-          <div className="ds-stat-card-top">
-            <div className="ds-icon-shape ds-icon-info">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-            </div>
-            <div className="ds-stat-label">In Transit</div>
-          </div>
-          <div className="ds-stat-card-bottom"><div className="ds-stat-value">{active.length}</div></div>
-        </div>
-        <div className="ds-stat-card">
-          <div className="ds-stat-card-top">
-            <div className="ds-icon-shape ds-icon-warning">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
-            </div>
-            <div className="ds-stat-label">Delayed</div>
-          </div>
-          <div className="ds-stat-card-bottom"><div className="ds-stat-value" style={{ color: 'var(--ds-warning)' }}>{filtered.filter(s => s.status === 'DELAYED').length}</div></div>
-        </div>
-        <div className="ds-stat-card">
-          <div className="ds-stat-card-top">
-            <div className="ds-icon-shape ds-icon-danger">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
-            </div>
-            <div className="ds-stat-label">Disruptions</div>
-          </div>
-          <div className="ds-stat-card-bottom"><div className="ds-stat-value" style={{ color: disruptions.length > 0 ? 'var(--ds-danger)' : undefined }}>{disruptions.length}</div></div>
-        </div>
-      </div>
+          <AtlasMap
+            shipments={active}
+            hubs={hubs}
+            disruptions={disruptions}
+            mode="network"
+            height={520}
+            onOpenDossier={ref => navigate(`/shipments/${ref}`)}
+          />
+        </section>
 
-      {/* Map + Alerts table */}
-      <div className="ds-grid ds-grid-3-1 ds-grid-row">
-        <div className="ds-card">
-          <div className="ds-card-header">
-            <span className="ds-card-title">Live Map</span>
-          </div>
-          <div style={{ height: 380, position: 'relative' }}>
-            <WorldVisualization shipments={active} hubs={[]} disruptions={disruptions} width="100%" height="100%" />
-            {/* Mode filter bar */}
-            <div className="nx-mode-bar">
-              {MODES.map(m => (
-                <button key={m} className={`nx-mode-btn ${mode === m ? 'active' : ''}`} onClick={() => setMode(m)}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="ds-card">
-          <div className="ds-card-header">
-            <span className="ds-card-title">Alerts</span>
-            {alerts.length > 0 && <span className="ds-badge ds-badge-danger">{alerts.length}</span>}
-          </div>
-          <div className="ds-card-body" style={{ maxHeight: 380, overflowY: 'auto' }}>
-            {alerts.length === 0 && <div className="nx-empty">No active alerts</div>}
-            {alerts.map((a, i) => (
-              <div key={a.id || i} style={{ padding: '10px 0', borderBottom: '1px solid rgba(0,212,170,0.08)', fontSize: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <span className="ds-badge" style={{ background: a.type === 'HIGH_RISK' ? 'rgba(255,86,48,0.1)' : 'rgba(255,171,0,0.1)', color: a.type === 'HIGH_RISK' ? 'var(--ds-danger)' : 'var(--ds-warning)', fontSize: 10 }}>
-                    {(a.type || '').replace(/_/g, ' ')}
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--ds-gray-500)' }}>{new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                <div style={{ color: 'var(--ds-gray-700)', lineHeight: 1.4 }}>{a.message}</div>
+        <Panel
+          title="Live Alerts"
+          icon="bolt"
+          flush
+          actions={<Badge tone={signals.length > 0 ? 'critical' : 'ok'}>{signals.length}</Badge>}
+        >
+          <div style={{ maxHeight: 520, overflowY: 'auto' }}>
+            {signals.length === 0 ? <Empty>No active alerts</Empty> : (
+              <div className="nx-signals">
+                {signals.map(sig => {
+                  const color = sig.tone === 'critical' ? 'var(--nx-critical)'
+                    : sig.tone === 'high' ? 'var(--nx-high)'
+                    : sig.tone === 'warn' ? 'var(--nx-warn)'
+                    : sig.tone === 'ok' ? 'var(--nx-ok)' : 'var(--nx-info)';
+                  return (
+                    <div
+                      className="nx-signal"
+                      key={sig.key}
+                      style={sig.shipmentRef ? { cursor: 'pointer' } : undefined}
+                      onClick={() => sig.shipmentRef && navigate(`/shipments/${sig.shipmentRef}`)}
+                    >
+                      <div className="nx-signal-icon" style={{ background: `${color}1f`, color }}>
+                        <Glyph name={sig.icon} size={12} />
+                      </div>
+                      <div className="nx-signal-body">
+                        <div className="nx-signal-event">
+                          {sig.label}
+                          {sig.shipmentRef && (
+                            <span className="nx-mono" style={{ color: 'var(--nx-teal)', marginLeft: 6, fontSize: 11 }}>
+                              {sig.shipmentRef}
+                            </span>
+                          )}
+                          {sig.corrected && <span className="atl-flag">verified</span>}
+                          {sig.unverified && <span className="atl-flag atl-flag--muted">unverified</span>}
+                        </div>
+                        <div className="nx-signal-meta">{sig.message}</div>
+                        <div className="nx-signal-meta" style={{ marginTop: 3, opacity: 0.75 }}>
+                          Raised {signalTime(sig.createdAt) || '—'} · assessed {signalTime(sig.assessedAt)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        </Panel>
       </div>
 
-      {/* Shipments table */}
-      <div className="ds-card ds-grid-row">
-        <div className="ds-card-header">
-          <span className="ds-card-title">All Shipments ({filtered.length})</span>
-        </div>
-        <div className="ds-table-wrap">
-          <table className="ds-table">
-            <thead>
-              <tr><th>Reference</th><th>Route</th><th>Mode</th><th>Status</th><th>Risk</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 15).map(s => (
-                <tr key={s.id} onClick={() => navigate(`/shipments/${s.shipment_ref}`)}>
-                  <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{s.shipment_ref}</td>
-                  <td style={{ color: 'var(--ds-gray-600)' }}>{s.origin_name} → {s.destination_name}</td>
-                  <td><span className="ds-badge ds-badge-secondary">{s.transport_mode || '—'}</span></td>
-                  <td><span className="ds-badge" style={{ background: 'var(--ds-gray-200)', color: 'var(--ds-gray-600)' }}>{(s.status || '').replace(/_/g, ' ')}</span></td>
-                  <td style={{ fontWeight: 700, color: getRiskColor(s.risk_level || 'LOW'), fontVariantNumeric: 'tabular-nums' }}>{s.risk_score || 0}</td>
-                  <td><button className="ds-btn ds-btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${s.shipment_ref}`); }}>View</button></td>
+      {/* ---- Movements + disruption watch ---- */}
+      <div className="atl-split atl-split--even">
+        <Panel
+          title={`Shipments in scope — ${filtered.length}`}
+          icon="shipments"
+          flush
+          actions={<button className="nx-btn nx-btn-sm nx-btn-ghost" onClick={() => navigate('/shipments')}>Full registry</button>}
+        >
+          <div className="nx-table-wrap" style={{ maxHeight: 440, overflowY: 'auto' }}>
+            <table className="nx-table">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Lane</th>
+                  <th>Mode</th>
+                  <th>Status</th>
+                  <th>Delay</th>
+                  <th style={{ textAlign: 'right' }}>Risk</th>
+                  <th style={{ width: 34 }} />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {ranked.map(s => (
+                  <tr key={s.id} className="clickable" onClick={() => navigate(`/shipments/${s.shipment_ref}`)}>
+                    <td className="cell-ref">{s.shipment_ref}</td>
+                    <td className="cell-route">{s.origin_name} → {s.destination_name}</td>
+                    <td><ModeBadge mode={s.transport_mode} /></td>
+                    <td><Badge tone={statusTone(s.status)}>{humanize(s.status)}</Badge></td>
+                    <td className="nx-mono" style={{ fontSize: 11, color: (s.delay_hours || 0) > 0 ? 'var(--nx-warn)' : undefined }}>
+                      {(s.delay_hours || 0) > 0 ? `+${s.delay_hours}h` : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}><RiskPill level={s.risk_level} score={s.risk_score} /></td>
+                    <td><IconArrowRight size={13} /></td>
+                  </tr>
+                ))}
+                {ranked.length === 0 && <tr><td colSpan={7}><Empty>No shipments in this mode</Empty></td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <Panel title="Disruption Watch" icon="alert" flush>
+          <div style={{ maxHeight: 440, overflowY: 'auto' }}>
+            {disruptions.length === 0 ? <Empty>No active disruptions</Empty> : disruptions.map((d: any) => {
+              const color = d.severity === 'HIGH' ? 'var(--nx-critical)' : 'var(--nx-warn)';
+              return (
+                <div className="nx-signal" key={d.id}>
+                  <div className="nx-signal-icon" style={{ background: `${color}1f`, color }}>
+                    <Glyph name="alert" size={12} />
+                  </div>
+                  <div className="nx-signal-body">
+                    <div className="nx-signal-event">{d.location_name}</div>
+                    <div className="nx-signal-meta">{humanize(d.category)}</div>
+                    <div className="nx-signal-meta" style={{ marginTop: 4 }}>
+                      <Badge tone={severityTone(d.severity)}>{d.severity}</Badge>
+                      <span className="nx-mono" style={{ fontSize: 10, marginLeft: 6 }}>
+                        {d.potential_impact_hours_min}–{d.potential_impact_hours_max}h
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
       </div>
     </div>
   );
