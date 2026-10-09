@@ -6,6 +6,7 @@ from app.models.shipment import Shipment
 from app.models.enums import DocumentType, DocumentStatus
 from app.config import settings
 from app.documents.compare import compare_documents
+from app.risk.cache import risk_cache
 import os
 import uuid
 
@@ -62,10 +63,16 @@ async def upload_document(
     db.commit()
 
     existing_docs = db.query(Document).filter(Document.shipment_id == shipment.id).all()
+    seen_types = set()
     existing_extractions = []
     for d in existing_docs:
+        # Prefer one extraction per document type so a duplicate upload does not
+        # shadow the values a single document contributes to the comparison.
+        if d.type.value in seen_types:
+            continue
         ext = db.query(DocumentExtraction).filter(DocumentExtraction.document_id == d.id).first()
         if ext:
+            seen_types.add(d.type.value)
             existing_extractions.append({
                 "type": d.type.value,
                 "data": ext.extracted_json
@@ -88,6 +95,10 @@ async def upload_document(
                 )
                 db.add(new_disc)
         db.commit()
+
+    # An upload can change the "missing documentation" risk factor, so the
+    # cached score for this shipment must not survive the request.
+    risk_cache.invalidate(shipment.id)
 
     return {
         "document_id": doc.id,

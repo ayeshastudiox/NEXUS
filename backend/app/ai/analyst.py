@@ -293,6 +293,15 @@ No document inconsistencies detected. All shipping documents, manifests, and cus
 COMPLIANCE STATUS: CLEAR"""
 
     elif _is_status_query():
+        eta_text = "Not yet determined"
+        if eta:
+            # `eta` is an ISO-8601 string from the context, not a datetime.
+            from datetime import datetime
+            try:
+                eta_text = datetime.fromisoformat(eta).strftime('%B %d, %Y at %H:%M UTC')
+            except Exception:
+                eta_text = str(eta)
+
         return f"""NEXUS INTELLIGENCE
 
 STATUS REPORT — {ref}
@@ -307,7 +316,7 @@ RISK OVERVIEW
   Level: {risk_level} ({risk_score}/100)
 
 ETA
-  {eta.strftime('%B %d, %Y at %H:%M UTC') if eta else 'Not yet determined'}"""
+  {eta_text}"""
 
     elif "fleet" in question_lower or "overview" in question_lower or "summary" in question_lower:
         total = context.get("total_shipments", 0)
